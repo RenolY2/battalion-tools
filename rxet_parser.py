@@ -18,13 +18,16 @@ class RXET():
         
         filename_length =  unpack("I", self.fileobj.read(4))[0]
         filename = self.fileobj.read(filename_length)
+
+        misc = (header, unknown_short1, section_count, filename_length, filename)
         
         for i in range(section_count):
             section_name = self.fileobj.read(4)
             #print(section_name, hex(self.fileobj.tell()), len(section_name))
             if section_name in self.parser:
-                sectionData = self.parser[section_name]() 
-                data.append((section_name, self.fileobj.tell(), sectionData))
+                start = self.fileobj.tell()
+                sectionData = self.parser[section_name]()
+                data.append((section_name, start, self.fileobj.tell(), sectionData))
                 #if section_name == b"TXET":
                 #    print(sectionData)
             else:
@@ -33,7 +36,7 @@ class RXET():
 
             
         #print unpack("H", unknown_short2)
-        return data
+        return misc, data
 
     def read_ftbx(self):
         dat = {}
@@ -52,7 +55,7 @@ class RXET():
         dat["unknown_flags"] = unpack("I", self.fileobj.read(4))[0]
         
         nextBits = self.fileobj.read(4)
-        # Extra data?
+        # Extra data? Seems to be for TXET entries that aren't followed by a DXT1 entry
         if nextBits in (b"P8\x00\x00", b"A8R8"):
             dat["unknown_string"] = nextBits+self.fileobj.read(4)
             dat["unknown_ARGBstring"] = self.fileobj.read(8)
@@ -65,8 +68,9 @@ class RXET():
             dat["unknown_int10"] = unpack("I", self.fileobj.read(4))[0]
             dat["unknown_int11"] = unpack("I", self.fileobj.read(4))[0]
             dat["unknown_int12"] = unpack("I", self.fileobj.read(4))[0]
-            
-            dat["unknown_end_int13"] = unpack("I", self.fileobj.read(4))[0]
+
+
+            dat["pim_count"] = unpack("I", self.fileobj.read(4))[0]
         else:
             self.fileobj.seek(-4, 1)
         
@@ -80,7 +84,7 @@ class RXET():
         
         dat["unknown_int2"] = self.fileobj.read(4)  # Only 0's?
         dat["unknown_byte1"] = self.fileobj.read(1)  # always 0xFF?
-        dat["unknown_int3_count"] = self.fileobj.read(4)  # A count for something?
+        dat["unknown_int3_count"] = unpack("I", self.fileobj.read(4))[0]  # A count for something?
         dat["unknown_int4_count"] = self.fileobj.read(4)
         
         dat["unknown_byte2"] = self.fileobj.read(1)  # Often 0x00, once 0x04? (in frontend_0_level.res)
@@ -123,6 +127,8 @@ if __name__ == "__main__":
     
     dir = "BattalionWars/BW1/Data/CompoundFiles"
     files = os.listdir(dir)
+
+    outdir = "out/"
     
     txet_data = {}
     
@@ -138,14 +144,24 @@ if __name__ == "__main__":
 
         with open(path, "rb") as inputfile:
             rxet = RXET(inputfile)
-            data = rxet.parse_rxet()
+            misc, data = rxet.parse_rxet()
 
-        for dataPiece in data:
-            #if dataPiece[0] == b"TXET":
-            txet_data[filename].append(dataPiece[2])
-            entities.append(dataPiece[2]["name_string"])
+        out_path = os.path.join(outdir, filename+".txt")
+        with open(out_path, "w") as f:
+            f.write("")
+
+
+
+        with open(out_path, "a") as f:
+            f.write("=\n=")
+            f.write(str(misc))
+            f.write("\n=\n")
+            for entry in data:
+                section_name, start, end, section_data = entry
+                f.write("{0} start: {1} end: {2}, size: {3}".format(section_name, start, end, end-start))
+                if section_name in (b"FTBX", b"TXET", b"DXT1"):
+                    f.write(": ")
+                    f.write(str(section_data))
+                f.write("\n")
 
         #txet_data[filename].insert(0, entities)
-
-    with open("txet.json", "w") as f:
-        json.dump(txet_data, fp=f, indent=" "*4, sort_keys=True)
