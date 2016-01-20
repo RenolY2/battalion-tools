@@ -8,22 +8,36 @@ class RXET():
                        b"DXT1": self.read_dxt,
                        b" PIM": self.read_pim,
                        #"P8\x00\x00" : self.read_TXET_P8,
-                       b" LAP": self.read_lap}
+                       b" LAP": self.read_lap,
+                       b"DNOS": self.read_dnos,
+                       b"HFSB": self.read_hfsb,
+                       b"HPSD": self.read_hpsd,
+                       b"DPSD": self.read_dpsd,
+                       b"LDOM": self.read_ldom}
+
+    def read_int(self):
+        return unpack("I", self.fileobj.read(4))[0]
 
     def parse_rxet(self):
+        size = 0
+        self.fileobj.seek(-1, 2)
+        size = self.fileobj.tell()
+        self.fileobj.seek(0)
+
         data = []
-        header = self.fileobj.read(4) 
-        unknown_short1 = self.fileobj.read(2)
-        section_count = unpack("H", self.fileobj.read(2))[0]
+        header = self.fileobj.read(4)
+        unknown_int = self.fileobj.read(4)#unpack("I", self.fileobj.read(4))[0]
         
         filename_length =  unpack("I", self.fileobj.read(4))[0]
         filename = self.fileobj.read(filename_length)
 
-        misc = (header, unknown_short1, section_count, filename_length, filename)
-        
-        for i in range(section_count):
+        misc = (header, unknown_int, filename_length, filename)
+        print(misc)
+        #for i in range(section_count):
+        while self.fileobj.tell() < size:
+
             section_name = self.fileobj.read(4)
-            #print(section_name, hex(self.fileobj.tell()), len(section_name))
+            print(section_name, hex(self.fileobj.tell()), len(section_name))
             if section_name in self.parser:
                 start = self.fileobj.tell()
                 sectionData = self.parser[section_name]()
@@ -31,8 +45,9 @@ class RXET():
                 #if section_name == b"TXET":
                 #    print(sectionData)
             else:
+                trouble_offset = self.fileobj.tell()
                 raise RuntimeError("Unknown section: {0}\nCurrent position offset: {1}"
-                                   "".format(section_name, hex(self.fileobj.tell()) ))
+                                   "".format(section_name, hex(trouble_offset) ))
 
             
         #print unpack("H", unknown_short2)
@@ -116,13 +131,60 @@ class RXET():
         dat["data"] = self.fileobj.read(data_length)
         
         return dat
-        
 
+    def read_dnos(self):
+        dat = {}
+
+        dat["unknown_int"] = self.fileobj.read(4)
+        dat["string_length"] = unpack("I", self.fileobj.read(4))[0]
+        dat["name"] = self.fileobj.read(dat["string_length"])
+
+        return dat
+
+    def read_hfsb(self):
+        dat = []
+        dat.append(self.fileobj.read(4))
+        dat.append(self.fileobj.read(4))
+
+        return dat
+
+    def read_hpsd(self):
+        dat = []
+        length = self.read_int()
+        string = self.fileobj.read(length)
+        dat.append(length)
+        dat.append(string)
+
+        return dat
+
+    def read_dpsd(self):
+        dat = []
+        length = unpack("I", self.fileobj.read(4))[0]
+        bin_data = self.fileobj.read(length)
+
+        print(hex(length))
+
+        dat.append(length)
+        dat.append(bin_data)
+        return dat
+
+    def read_ldom(self):
+        dat = []
+        dat.append(self.read_int())
+        string_length = self.read_int()
+        string = self.fileobj.read(string_length)
+
+        dat.append(string_length)
+        dat.append(string)
+
+        return dat
 
 
 if __name__ == "__main__":
     #filename = "frontend_0_Level.res"
     import os
+    import string
+    ALPHAWHITESPACE = bytes(string.ascii_uppercase+" ", encoding="ascii")
     import json
     
     dir = "BattalionWars/BW1/Data/CompoundFiles"
@@ -141,11 +203,31 @@ if __name__ == "__main__":
         path = os.path.join(dir, filename)
 
         print(filename)
-
+        print(all((x in ALPHAWHITESPACE for x in ALPHAWHITESPACE)))
         with open(path, "rb") as inputfile:
-            rxet = RXET(inputfile)
-            misc, data = rxet.parse_rxet()
+            try:
+                rxet = RXET(inputfile)
+                misc, data = rxet.parse_rxet()
+            except RuntimeError:
+                print(hex(rxet.fileobj.tell()))
+                curr = rxet.fileobj.tell()
 
+                hits = 0
+
+                while True:
+                    string = rxet.fileobj.read(4)
+                    if all(char in ALPHAWHITESPACE for char in string):
+                        print("next possible spot:", string, hex(rxet.fileobj.tell()))
+                        hits += 1
+
+                    rxet.fileobj.seek(-3, 1)
+
+                    if hits > 15:
+                        break
+                rxet.fileobj.seek(curr)
+                raise
+
+        """
         out_path = os.path.join(outdir, filename+".txt")
         with open(out_path, "w") as f:
             f.write("")
@@ -165,3 +247,4 @@ if __name__ == "__main__":
                 f.write("\n")
 
         #txet_data[filename].insert(0, entities)
+        """
