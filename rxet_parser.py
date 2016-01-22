@@ -1,4 +1,7 @@
+import warnings
+
 from struct import unpack
+
 
 class RXET():
     def __init__(self, fileobj):
@@ -18,7 +21,7 @@ class RXET():
     def read_int(self):
         return unpack("I", self.fileobj.read(4))[0]
 
-    def parse_rxet(self):
+    def parse_rxet(self, strict=True, verbose=False):
         size = 0
         self.fileobj.seek(-1, 2)
         size = self.fileobj.tell()
@@ -32,12 +35,12 @@ class RXET():
         filename = self.fileobj.read(filename_length)
 
         misc = (header, unknown_int, filename_length, filename)
-        print(misc)
+        if verbose: print(misc)
         #for i in range(section_count):
         while self.fileobj.tell() < size:
 
             section_name = self.fileobj.read(4)
-            print(section_name, hex(self.fileobj.tell()), len(section_name))
+            if verbose: print(section_name, hex(self.fileobj.tell()), len(section_name))
             if section_name in self.parser:
                 start = self.fileobj.tell()
                 sectionData = self.parser[section_name]()
@@ -46,8 +49,13 @@ class RXET():
                 #    print(sectionData)
             else:
                 trouble_offset = self.fileobj.tell()
-                raise RuntimeError("Unknown section: {0}\nCurrent position offset: {1}"
-                                   "".format(section_name, hex(trouble_offset) ))
+                if strict:
+                    raise RuntimeError("Unknown section: {0}\nCurrent position offset: {1}"
+                                       "".format(section_name, hex(trouble_offset) ))
+                else:
+                    warnings.warn("Unknown section: {0}\nCurrent position offset: {1}"
+                                  "".format(section_name, hex(trouble_offset)))
+                    break
 
             
         #print unpack("H", unknown_short2)
@@ -64,8 +72,8 @@ class RXET():
         dat = {}
         dat["unknown_int01"] = unpack("I", self.fileobj.read(4))[0]
         dat["name_string"] = self.fileobj.read(16)
-        dat["unknown_int02"] = unpack("I", self.fileobj.read(4))[0]
-        dat["unknown_int03"] = unpack("I", self.fileobj.read(4))[0]
+        dat["xsize"] = unpack("I", self.fileobj.read(4))[0]
+        dat["ysize"] = unpack("I", self.fileobj.read(4))[0]
         dat["unknown_int04"] = unpack("I", self.fileobj.read(4))[0]
         dat["unknown_flags"] = unpack("I", self.fileobj.read(4))[0]
         
@@ -162,8 +170,6 @@ class RXET():
         length = unpack("I", self.fileobj.read(4))[0]
         bin_data = self.fileobj.read(length)
 
-        print(hex(length))
-
         dat.append(length)
         dat.append(bin_data)
         return dat
@@ -207,7 +213,7 @@ if __name__ == "__main__":
         with open(path, "rb") as inputfile:
             try:
                 rxet = RXET(inputfile)
-                misc, data = rxet.parse_rxet()
+                misc, data = rxet.parse_rxet(strict=False)
             except RuntimeError:
                 print(hex(rxet.fileobj.tell()))
                 curr = rxet.fileobj.tell()
@@ -227,7 +233,7 @@ if __name__ == "__main__":
                 rxet.fileobj.seek(curr)
                 raise
 
-        """
+
         out_path = os.path.join(outdir, filename+".txt")
         with open(out_path, "w") as f:
             f.write("")
@@ -247,4 +253,3 @@ if __name__ == "__main__":
                 f.write("\n")
 
         #txet_data[filename].insert(0, entities)
-        """
