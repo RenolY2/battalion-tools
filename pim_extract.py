@@ -127,11 +127,6 @@ if __name__ == "__main__":
                 xsize = section_data["xsize"]
                 ysize = section_data["ysize"]
 
-                if xsize != 64 and ysize != 64:
-                    found_txet = False
-                    mode = None
-                    continue
-
                 if "unknown_string" in section_data and section_data["unknown_string"].startswith(b"P8"):
                     mode = MODE_P8
                 elif entries[i+1][0] == b"DXT1":
@@ -198,7 +193,7 @@ if __name__ == "__main__":
                                     #col2 = (col0 + col1) // 2
                                     #col3 = 0
 
-                                    color2 = divrgba(addrgba(color0, color1), 3)
+                                    color2 = divrgba(addrgba(color0, color1), 2)
                                     color3 = (0, 0, 0, 0)
 
                                     #colortable = (decode_rgb565(col0), decode_rgb565(col1),
