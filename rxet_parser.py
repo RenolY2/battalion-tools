@@ -1,29 +1,36 @@
 import warnings
 
 from struct import unpack
-from rxet.parsers_bw1 import (
-    read_dnos, read_dpsd, read_dxt,
-    read_ftbx,read_hfsb, read_hpsd,
-    read_lap, read_pim, read_txet
-)
+import rxet.parsers_bw1 as bw1
+import rxet.parsers_bw2 as bw2
 
 class RXET():
     def __init__(self, fileobj, version):
         self.fileobj = fileobj
 
         if version == "BW1":
-            self.parser = {b"FTBX": read_ftbx,
-                           b"TXET": read_txet,
-                           b"DXT1": read_dxt,
-                           b" PIM": read_pim,
-                           b" LAP": read_lap,
-                           b"DNOS": read_dnos,
-                           b"HFSB": read_hfsb,
-                           b"HPSD": read_hpsd,
-                           b"DPSD": read_dpsd}
+            self.parser = {b"FTBX": bw1.read_ftbx,
+                           b"TXET": bw1.read_txet,
+                           b"DXT1": bw1.read_dxt,
+                           b" PIM": bw1.read_pim,
+                           b" LAP": bw1.read_lap,
+                           b"DNOS": bw1.read_dnos,
+                           b"HFSB": bw1.read_hfsb,
+                           b"HPSD": bw1.read_hpsd,
+                           b"DPSD": bw1.read_dpsd}
                            #b"LDOM": self.read_ldom}
         elif version == "BW2":
-            pass
+            self.parser = {b"FTBG": bw2.read_ftbg,
+                           b"DXTG": bw2.read_dxtg,
+                           b" PIM": bw2.read_pim,
+                           b" LAP": bw2.read_lap,
+                           b"DNOS": bw2.read_dnos,
+                           b"HFSB": bw2.read_hfsb,
+                           b"HPSD": bw2.read_hpsd,
+                           b"DPSD": bw2.read_dpsd,
+                           b"PRCS": bw2.read_prcs,
+                           b"FEQT": bw2.read_feqt,
+                           b"LDOM": bw2.read_ldom}
         else:
             raise RuntimeError("Unknown version: {0}".format(version))
 
@@ -37,7 +44,7 @@ class RXET():
         header = self.fileobj.read(4)
         unknown_int = self.fileobj.read(4)
         
-        filename_length =  unpack("I", self.fileobj.read(4))[0]
+        filename_length = unpack("I", self.fileobj.read(4))[0]
         filename = self.fileobj.read(filename_length)
 
         misc = (header, unknown_int, filename_length, filename)
@@ -76,10 +83,10 @@ if __name__ == "__main__":
     ALPHAWHITESPACE = bytes(string.ascii_uppercase+" ", encoding="ascii")
     import json
     
-    dir = "BattalionWars/BW1/Data/CompoundFiles"
+    dir = "BattalionWars/BW2/Data/CompoundFiles"
     files = os.listdir(dir)
 
-    outdir = "out/"
+    outdir = "out/BW2/"
     
     txet_data = {}
     
@@ -95,9 +102,10 @@ if __name__ == "__main__":
         print(all((x in ALPHAWHITESPACE for x in ALPHAWHITESPACE)))
         with open(path, "rb") as inputfile:
             try:
-                rxet = RXET(inputfile, "BW1")
+                rxet = RXET(inputfile, "BW2")
                 misc, data = rxet.parse_rxet(strict=False)
             except RuntimeError:
+                raise
                 print(hex(rxet.fileobj.tell()))
                 curr = rxet.fileobj.tell()
 
@@ -130,7 +138,7 @@ if __name__ == "__main__":
             for entry in data:
                 section_name, start, end, section_data = entry
                 f.write("{0} start: {1} end: {2}, size: {3}".format(section_name, start, end, end-start))
-                if section_name in (b"FTBX", b"TXET", b"DXT1"):
+                if section_name in (b"FTBG", b"DXTG"):
                     f.write(": ")
                     f.write(str(section_data))
                 f.write("\n")
