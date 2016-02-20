@@ -144,6 +144,92 @@ class SoundName(BWSection):
         return super().pack()
 
 
+class ParticleEntry(BWResource):
+    def __init__(self, name, size, memview):
+        assert name == b"FEQT"
+        super().__init__(name, size, memview)
+
+        strlength = unpack_uint32(self._data, 0)
+        self.particle_name = self._data[4:4+strlength]
+        self.particle_data = self._data[4+strlength:]
+
+    def pack(self):
+        self._fileobj = io.BytesIO()
+        self._fileobj.write(struct.pack("I", len(self.particle_name)))
+        self._fileobj.write(self.particle_name)
+        self._fileobj.write(self.particle_data)
+
+        self._data = self._fileobj.getbuffer()
+
+        return super().pack()
+
+
+class AnimationEntry(BWResource):
+    def __init__(self, name, size, memview):
+        assert name == b"MINA"
+        super().__init__(name, size, memview)
+
+        strlength = unpack_uint32(self._data, 0)
+        self.animation_name = self._data[4:4+strlength]
+        self.animation_data = self._data[4+strlength:]
+
+        #print(bytes(self.animation_name))
+
+    def pack(self):
+        self._fileobj = io.BytesIO()
+        self._fileobj.write(struct.pack("I", len(self.animation_name)))
+        self._fileobj.write(self.animation_name)
+        self._fileobj.write(self.animation_data)
+
+        self._data = self._fileobj.getbuffer()
+
+        return super().pack()
+
+
+class ModelSection(BWSection):
+    def __init__(self, name, size, memview):
+        assert name == b"LDOM"
+        strlength = unpack_uint32(memview, 0)
+        super().__init__(name, size, memview, section_offset=4+strlength)
+
+        assert self.entries[0].name == b"LDOM" and len(self.entries) == 1
+        #self.entries[0] = self.modeldata = self.entries[0].as_section(cls=ModelSubsection)
+
+        self.model_name = self._header[4:4+strlength]
+
+    def pack(self):
+        newheader = io.BytesIO()
+        newheader.write(struct.pack("I", len(self.model_name)))
+        newheader.write(self.model_name)
+
+        self._header = newheader.getvalue()
+        newheader.close()
+
+        return super().pack()
+
+"""
+class ModelSubsection(BWSection):
+    def __init__(self, name, size, memview):
+        assert name == b"LDOM"
+        super().__init__(name, size, memview, section_offset=0x18)
+"""
+
+class ScriptEntry(BWResource):
+    def __init__(self, name, size, memview):
+        super().__init__(name, size, memview)
+        strlength = unpack_uint32(self._data, 0)
+        self.script_name = self._data[4:4+strlength]
+        self.script_data = self._data[4+strlength:]
+
+    def pack(self):
+        self._fileobj = io.BytesIO()
+        self._fileobj.write(struct.pack("I", len(self.script_name)))
+        self._fileobj.write(self.script_name)
+        self._fileobj.write(self.script_data)
+
+        self._data = self._fileobj.getbuffer()
+
+        return super().pack()
 
 
 class BWArchive(BWArchiveBase):
@@ -173,6 +259,16 @@ class BWArchive(BWArchiveBase):
             if self.dnos.entries[i].name == b"HPSD":
                 assert self.dnos.entries[i+1].name == b"DPSD"
                 self.dnos.entries[i] = self.dnos.entries[i].as_section(cls=SoundName)
+
+        for i, entry in enumerate(self.entries):
+            if entry.name == b"FEQT":
+                self.entries[i] = self.entries[i].as_section(cls=ParticleEntry)
+            elif entry.name == b"MINA":
+                self.entries[i] = self.entries[i].as_section(cls=AnimationEntry)
+            elif entry.name == b"LDOM":
+                self.entries[i] = self.entries[i].as_section(cls=ModelSection)
+            elif entry.name == b"PRCS":
+                self.entries[i] = self.entries[i].as_section(cls=ScriptEntry)
 
         self.sounds = [(self.dnos.entries[i], self.dnos.entries[i+1]) for i in range(1, len(self.dnos.entries), 2)]
 
