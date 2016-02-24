@@ -59,8 +59,9 @@ if __name__ == "__main__":
     in_dir = os.path.join("BattalionWars", "BW1", "Data", "CompoundFiles")
 
 
-    in_level = "C3_PassThePort"
-    out_level = "C2_Exodus"
+    #in_level = "C3_PassThePort"
+    in_level = "C3_Bonus"
+    out_level = "C2_ExodusM"
 
     in_res_filename = in_level+"_Level.res"
     in_xml_filename = in_level+"_Level.xml"
@@ -87,10 +88,13 @@ if __name__ == "__main__":
 
     graph = calc_dependency_graph(in_xml)
 
-    battlestation = "2138048269"
-    bsta_dependencies = get_dependencies(graph, battlestation)
+    #battlestation = "2138048269"
+    #unit_base_id = "2138048269" #WF Battlestation
+    unit_base_id = "2138051207" #SolarEmpire Heavy Tank
+    bsta_dependencies = get_dependencies(graph, unit_base_id)
 
-    additional = ["2138046784", "2138046782", "2138046783", "250000932"]
+    #additional = ["2138046784", "2138046782", "2138046783", "250000932"] Textures for Battlestation
+    additional = ["1850000107"] # Textures for SE Heavy Tank
     #bsta_dependencies.append("2138046784")
     assert all(x not in bsta_dependencies for x in additional)
     bsta_dependencies.extend(additional)
@@ -129,8 +133,9 @@ if __name__ == "__main__":
                     #out_res.entries.append(res)
                     #out_res.add_model(res)
                     #if res.res_name == b"VWFBSTAH_TRAC_R":
-                    if res.res_name == b"VWFBSTAH":
-                        replace_res = get_resource(out_res, obj.type, b"VWFHTNKH")
+                    #if res.res_name == b"VWFBSTAH":
+                    if res.res_name == b"VSHTNKH":
+                        replace_res = get_resource(out_res, obj.type, b"VWFAAH")
                         assert len(res.entries) == 1
                         assert len(replace_res.entries) == 1
                         replace_res.entries[0] = res.entries[0]
@@ -161,6 +166,9 @@ if __name__ == "__main__":
     with open(out_xml_modded, "wb") as f:
         out_xml._tree.write(f)
 
+    print("saved as:")
+    print(out_res_modded)
+    print(out_xml_modded)
 
 
 
