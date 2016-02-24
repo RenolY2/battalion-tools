@@ -52,7 +52,7 @@ class TextureEntry(BWSection):
 
         super().__init__(name, size, memview, section_offset=0x54)
 
-        self.tex_name = self._header[0x00:0x10]
+        self.res_name = self._header[0x00:0x10]
         self.width = unpack_uint32(self._header, 0x10)
         self.height = unpack_uint32(self._header, 0x14)
 
@@ -65,7 +65,7 @@ class TextureEntry(BWSection):
         self.unknowns = [unpack_uint32(self._header, 0x30+i*4) for i in range(8)]
 
     def pack(self):
-        self._header[0x00:0x10] = bytes(self.tex_name).ljust(16, b"\x00")
+        self._header[0x00:0x10] = bytes(self.res_name).ljust(16, b"\x00")
 
         self._header[0x10:0x20] = struct.pack(
             "I"*4, self.width, self.height, self.unknown1, self.unknown2
@@ -136,10 +136,10 @@ class SoundName(BWSection):
         assert name == b"HPSD"
         super().__init__(name, size, memview, section_offset=0x20)
 
-        self.modelname = self._header[0:0x20]
+        self.res_name = self._header[0:0x20]
 
     def pack(self):
-        self._header[0:0x20] = self.modelname
+        self._header[0:0x20] = self.res_name
 
         return super().pack()
 
@@ -150,13 +150,13 @@ class ParticleEntry(BWResource):
         super().__init__(name, size, memview)
 
         strlength = unpack_uint32(self._data, 0)
-        self.particle_name = self._data[4:4+strlength]
+        self.res_name = self._data[4:4+strlength]
         self.particle_data = self._data[4+strlength:]
 
     def pack(self):
         self._fileobj = io.BytesIO()
-        self._fileobj.write(struct.pack("I", len(self.particle_name)))
-        self._fileobj.write(self.particle_name)
+        self._fileobj.write(struct.pack("I", len(self.res_name)))
+        self._fileobj.write(self.res_name)
         self._fileobj.write(self.particle_data)
 
         self._data = self._fileobj.getbuffer()
@@ -170,15 +170,15 @@ class AnimationEntry(BWResource):
         super().__init__(name, size, memview)
 
         strlength = unpack_uint32(self._data, 0)
-        self.animation_name = self._data[4:4+strlength]
+        self.res_name = self._data[4:4+strlength]
         self.animation_data = self._data[4+strlength:]
 
         #print(bytes(self.animation_name))
 
     def pack(self):
         self._fileobj = io.BytesIO()
-        self._fileobj.write(struct.pack("I", len(self.animation_name)))
-        self._fileobj.write(self.animation_name)
+        self._fileobj.write(struct.pack("I", len(self.res_name)))
+        self._fileobj.write(self.res_name)
         self._fileobj.write(self.animation_data)
 
         self._data = self._fileobj.getbuffer()
@@ -195,12 +195,12 @@ class ModelSection(BWSection):
         assert self.entries[0].name == b"LDOM" and len(self.entries) == 1
         #self.entries[0] = self.modeldata = self.entries[0].as_section(cls=ModelSubsection)
 
-        self.model_name = self._header[4:4+strlength]
+        self.res_name = self._header[4:4+strlength]
 
     def pack(self):
         newheader = io.BytesIO()
-        newheader.write(struct.pack("I", len(self.model_name)))
-        newheader.write(self.model_name)
+        newheader.write(struct.pack("I", len(self.res_name)))
+        newheader.write(self.res_name)
 
         self._header = newheader.getvalue()
         newheader.close()
@@ -218,13 +218,13 @@ class ScriptEntry(BWResource):
     def __init__(self, name, size, memview):
         super().__init__(name, size, memview)
         strlength = unpack_uint32(self._data, 0)
-        self.script_name = self._data[4:4+strlength]
+        self.res_name = self._data[4:4+strlength]
         self.script_data = self._data[4+strlength:]
 
     def pack(self):
         self._fileobj = io.BytesIO()
-        self._fileobj.write(struct.pack("I", len(self.script_name)))
-        self._fileobj.write(self.script_name)
+        self._fileobj.write(struct.pack("I", len(self.res_name)))
+        self._fileobj.write(self.res_name)
         self._fileobj.write(self.script_data)
 
         self._data = self._fileobj.getbuffer()
@@ -271,11 +271,23 @@ class BWArchive(BWArchiveBase):
                 self.entries[i] = self.entries[i].as_section(cls=ScriptEntry)
 
         self.sounds = [(self.dnos.entries[i], self.dnos.entries[i+1]) for i in range(1, len(self.dnos.entries), 2)]
+        self.models = [x for x in filter(lambda k: k.name == b"LDOM", self.entries)]
+        self.animations = [x for x in filter(lambda k: k.name == b"MINA", self.entries)]
+        self.effects = [x for x in filter(lambda k: k.name == b"FEQT", self.entries)]
+        self.textures = [x for x in self.ftb.entries]
 
         """for nameentry, dataentry in self.models:
             print(bytes(nameentry.modelname))
         print(self.dnos.entries[0].count)
         print((len(self.dnos.entries)-1)/2.0)"""
+
+    def add_model(self, model):
+        for i, entry in enumerate(self.entries):
+            if entry.name == b"LDOM":
+                self.entries.insert(i, model)
+                break
+
+        self.entries.append(model)
 
     def pack(self):
         # Adjust the amount of models in case models were taken away or added.
