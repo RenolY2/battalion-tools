@@ -33,6 +33,9 @@ class BattWarsObject(object):
     def get_attr_elements(self, name):
         return [elem.text for elem in self._attributes[name]]
 
+    def get_attr_tag(self, name):
+        return self._attributes[name].tag
+
     # Use this for attributes that have only 1 element
     def get_attr_value(self, name):
         return self._attributes[name][0].text
@@ -71,13 +74,13 @@ def create_object_hierarchy(id_map):
             # In the xml file mBase has the type pointer, but it's actually
             # the ID of a different object in the file.
             pointer = obj.get_attr_value("mBase")
-            assert pointer in id_map
+            #assert pointer in id_map
 
             if obj.id not in hierarchy:
                 del never_referenced[obj_id]
                 hierarchy[obj.id] = pointer
             else:
-                raise RuntimeError("one object shouldn't have more than 1 reference")
+                raise RuntimeError("one object shouldn't have more than 1 reference: %s" % obj.name)
 
     return hierarchy, never_referenced
 
@@ -88,7 +91,8 @@ def create_ref(ref, hierarchy, id_map):
         return ref.name + " => " + create_ref(id_map[hierarchy[ref.id]], hierarchy, id_map)
 
 if __name__ == "__main__":
-    with open("bw1_sandbox/C1_Gauntlet_Level.xml", "r") as f:
+    infile = "bw2_sandbox/SP_5.3_Level.xml"
+    with open(infile, "r") as f:
         bw_level = BattWarsLevel(f)
 
     types = {}
@@ -101,7 +105,9 @@ if __name__ == "__main__":
         else:
             types[bw_object.type] += 1
 
-        assert bw_object.id not in id_map
+        #assert bw_object.id not in id_map
+        if bw_object.id in id_map:
+            print(bw_object.name)
         id_map[bw_object.id] = bw_object
 
     # Never referenced actually doesn't mean that it isn't referenced at all,
