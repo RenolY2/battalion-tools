@@ -50,6 +50,29 @@ def get_resource(bwlevel, restype, name):
     return None
 
 
+def get_model_data(source_xml, source_res, modelname):
+    model = get_resource(source_res, "cNodeHierarchyResource", modelname)
+    assert model is not None
+
+    # The following is a bit of a hack. As we cannot yet parse the model data completely,
+    # we iterate over all the texture names from the XML file and add the ones to a list
+    # that are referenced in the model data.
+    ldom = model.entries[0]
+    #print(bytes(ldom.data))
+    textures = []
+
+    for obj_id, obj in source_xml.obj_map.items():
+        if obj.type == "cTextureResource":
+            texname = bytes(obj.get_attr_value("mName"), encoding="utf-8")
+            #print(texname, texname[0], texname[0] in (b"v", b"V"))
+            if texname[0:1] in (b"v", b"V"):
+                print(texname)
+            if texname[0:1] in (b"v", b"V") and texname in bytes(ldom.data):
+                textures.append(
+                    get_resource(source_res, "cTextureResource", texname)
+                )
+
+    return model, textures
 
 if __name__ == "__main__":
     import os
@@ -102,7 +125,8 @@ if __name__ == "__main__":
     #print([x for x in needed_dependencies])
     hierarchy = ["sSampleResource", "cTequilaEffectResource", "cTextureResource", "cNodeHierarchyResource"]#,
                  #"cSimpleTequilaTaggedEffectBase"]
-
+    print("ok")
+    print(get_model_data(in_xml, in_res, b"VSHTNKH"))
     for obj_id in needed_dependencies:
         obj = in_xml.obj_map[obj_id]
         #if obj.type not in hierarchy:
