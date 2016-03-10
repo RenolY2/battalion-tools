@@ -38,7 +38,7 @@ class BWResource(object):
 
     def pack(self):
         #data = self.fileobj.read()
-        data = self.fileobj.getbuffer()
+        data = self._data#self.fileobj.getbuffer()
         #print(self.name, len(data))
         return self.name, len(data), data
 
