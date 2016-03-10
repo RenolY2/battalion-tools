@@ -60,6 +60,7 @@ def get_model_data(source_xml, source_res, modelname):
     ldom = model.entries[0]
     #print(bytes(ldom.data))
     textures = []
+    texture_ids = []
 
     for obj_id, obj in source_xml.obj_map.items():
         if obj.type == "cTextureResource":
@@ -68,11 +69,12 @@ def get_model_data(source_xml, source_res, modelname):
             if texname[0:1] in (b"v", b"V"):
                 print(texname)
             if texname[0:1] in (b"v", b"V") and texname in bytes(ldom.data):
+                texture_ids.append(obj.id)
                 textures.append(
                     get_resource(source_res, "cTextureResource", texname)
                 )
 
-    return model, textures
+    return model, textures, texture_ids
 
 if __name__ == "__main__":
     import os
@@ -82,9 +84,9 @@ if __name__ == "__main__":
     in_dir = os.path.join("BattalionWars", "BW1", "Data", "CompoundFiles")
 
 
-    #in_level = "C3_PassThePort"
-    in_level = "C3_Bonus"
-    out_level = "C2_ExodusM"
+    in_level = "C3_PassThePort"
+    #in_level = "C3_Bonus"
+    out_level = "C2_Exodus"
 
     in_res_filename = in_level+"_Level.res"
     in_xml_filename = in_level+"_Level.xml"
@@ -112,12 +114,13 @@ if __name__ == "__main__":
     graph = calc_dependency_graph(in_xml)
 
     #battlestation = "2138048269"
-    #unit_base_id = "2138048269" #WF Battlestation
-    unit_base_id = "2138051207" #SolarEmpire Heavy Tank
+    unit_base_id = "2138048269" #WF Battlestation
+    #unit_base_id = "2138051207" #SolarEmpire Heavy Tank
     bsta_dependencies = get_dependencies(graph, unit_base_id)
 
+    model, tex, additional = get_model_data(in_xml, in_res, b"VWFBSTAH")
     #additional = ["2138046784", "2138046782", "2138046783", "250000932"] Textures for Battlestation
-    additional = ["1850000107"] # Textures for SE Heavy Tank
+    #additional = ["1850000107"] # Textures for SE Heavy Tank
     #bsta_dependencies.append("2138046784")
     assert all(x not in bsta_dependencies for x in additional)
     bsta_dependencies.extend(additional)
@@ -126,7 +129,8 @@ if __name__ == "__main__":
     hierarchy = ["sSampleResource", "cTequilaEffectResource", "cTextureResource", "cNodeHierarchyResource"]#,
                  #"cSimpleTequilaTaggedEffectBase"]
     print("ok")
-    print(get_model_data(in_xml, in_res, b"VSHTNKH"))
+    print(len(out_res.models), len(out_res.animations), len(out_res.effects))
+    #print(get_model_data(in_xml, in_res, b"VSHTNKH"))
     for obj_id in needed_dependencies:
         obj = in_xml.obj_map[obj_id]
         #if obj.type not in hierarchy:
@@ -143,7 +147,7 @@ if __name__ == "__main__":
                 assert res is not None
 
                 if obj.type == "cTextureResource":
-                    print("texname:",bytes(res.res_name))
+                    print("texname:", bytes(res.res_name))
                     out_res.ftb.entries.insert(0, res)
                 elif obj.type == "sSampleResource":
                     res_name, res_data = res
@@ -157,14 +161,22 @@ if __name__ == "__main__":
                     #out_res.entries.append(res)
                     #out_res.add_model(res)
                     #if res.res_name == b"VWFBSTAH_TRAC_R":
-                    #if res.res_name == b"VWFBSTAH":
-                    if res.res_name == b"VSHTNKH":
+                    if res.res_name == b"VWFBSTAH":
+                    #if res.res_name == b"VSHTNKH":
                         replace_res = get_resource(out_res, obj.type, b"VWFAAH")
                         assert len(res.entries) == 1
                         assert len(replace_res.entries) == 1
-                        replace_res.entries[0] = res.entries[0]
+                        #replace_res.entries[0].data = b""# = res.entries[0]
+                    #    replace_res.res_name = b"VWFBSTAH"
                 else:
                     raise RuntimeError("unknown: "+obj.type)
+    aavehicle = get_resource(out_res, "cNodeHierarchyResource", b"VWFAAH")
+    hvtank = get_resource(out_res, "cNodeHierarchyResource", b"VWFHTNKH")
+
+    tmp = bytes(aavehicle.res_name)
+    #hvtank.res_name = b"VWFAAH"
+    aavehicle.res_name = bytes(hvtank.res_name)
+    hvtank.res_name = tmp
 
     print(len(in_xml.obj_map), len(out_xml.obj_map))
     for i, needed in enumerate(hierarchy):

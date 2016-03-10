@@ -281,13 +281,46 @@ class BWArchive(BWArchiveBase):
         print(self.dnos.entries[0].count)
         print((len(self.dnos.entries)-1)/2.0)"""
 
-    def add_model(self, model):
+    """def add_model(self, model):
+        found = False
+        end = False
         for i, entry in enumerate(self.entries):
-            if entry.name == b"LDOM":
+            if entry.name == b"LDOM" and found is False:
+                #self.entries.insert(i, model)
+                found = True
+            elif entry.name != b"LDOM" and found is True:
+                end = True
                 self.entries.insert(i, model)
                 break
 
-        self.entries.append(model)
+        if end is False:
+            raise RuntimeError("Malformed res archive?")
+        #self.entries.append(model)"""
+
+    # All resources have
+    def get_resource(self, restype, name):
+        if restype == "sSampleResource":
+            reslist = self.sounds
+
+            for res, res_data in reslist:
+                if bytes(res.res_name).strip(b"\x00") == name:
+                    return res, res_data
+            return None
+
+        elif restype == "cTequilaEffectResource":
+            reslist = self.effects
+        elif restype == "cNodeHierarchyResource":
+            reslist = self.models
+        elif restype == "cTextureResource":
+            reslist = self.textures
+        else:
+            raise RuntimeError("Unknown resoure type: {0}".format(restype))
+
+        for res in reslist:
+            if bytes(res.res_name).strip(b"\x00") == name:
+                return res
+
+        return None
 
     def pack(self):
         # Adjust the amount of models in case models were taken away or added.

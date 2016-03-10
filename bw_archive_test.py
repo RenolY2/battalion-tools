@@ -30,10 +30,23 @@ if __name__ == "__main__":
         with open(out, "rb") as f:
             test2 = f.read()
 
-
-
         print(path, out)
         print(test1 == test2)
         print(len(test1), len(test2))
-        assert test1 == test2
-        #break
+        #assert test1 == test2
+
+        for i, values in enumerate(zip(test1, test2)):
+            c1, c2 = values
+            if c1 != c2:
+                raise RuntimeError("Difference at {0}".format(hex(i)))
+
+        """
+        for i, entry in enumerate(arc.entries):
+            if entry.name in (b"LDOM", b"MINA", b"FEQT", b"PRCS"):
+                with open("res_dump/{0}-{1}.bin".format(entry.name, i), "wb") as f:
+                    name, size, data = entry.pack()
+                    f.write(data)
+
+        print([x.name for x in arc.entries])
+        """
+        break
